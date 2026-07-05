@@ -1,0 +1,59 @@
+// src/config.rs
+//
+// Define la estructura de configuración de la aplicación y la carga
+// desde `config.toml` en tiempo de ejecución. Esto permite cambiar
+// pines, broker o intervalos sin recompilar el binario.
+
+use serde::Deserialize;
+use std::fs;
+
+#[derive(Debug, Deserialize)]
+pub struct AppConfig {
+    pub mqtt: MqttConfig,
+    pub app: RuntimeConfig,
+{% for s in sensors %}
+    pub {{ s.key }}: {{ s.struct_name }}Config,
+{% endfor %}
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MqttConfig {
+    pub broker:    String,
+    pub port:      u16,
+    pub topic:     String,
+    pub client_id: String,
+{% if use_smartcampus %}
+    pub device_id: String,
+{% endif %}
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RuntimeConfig {
+    pub interval_secs: u64,
+{% if use_sqlite %}
+    pub db_path: String,
+{% endif %}
+}
+
+{% for s in sensors %}
+#[derive(Debug, Deserialize)]
+pub struct {{ s.struct_name }}Config {
+    pub enabled: bool,
+{% if s.type == "onewire" %}
+    pub device_id: String,
+{% else %}
+    pub pin: u8,
+{% endif %}
+}
+
+{% endfor %}
+impl AppConfig {
+    /// Carga la configuración desde la ruta indicada (normalmente "config.toml").
+    pub fn load(path: &str) -> Self {
+        let contenido = fs::read_to_string(path)
+            .unwrap_or_else(|e| panic!("No se pudo leer '{}': {}", path, e));
+
+        toml::from_str(&contenido)
+            .unwrap_or_else(|e| panic!("Error parseando '{}': {}", path, e))
+    }
+}

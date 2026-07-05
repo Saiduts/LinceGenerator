@@ -1,0 +1,53 @@
+// src/sensores.rs
+//
+// Inicialización de los sensores configurados. Cada función envuelve
+// la creación del sensor y traduce errores de inicialización en un
+// panic descriptivo, para que un fallo de hardware se note de inmediato
+// al arrancar en vez de fallar silenciosamente más adelante.
+
+use crate::config::AppConfig;
+
+{% for s in sensors %}
+{% if s.key == "dht11" %}
+use lince::devices::sensors::dht11::Dht11Sensor;
+{% elif s.key == "dht22" %}
+use lince::devices::sensors::dht22::Dht22Sensor;
+{% elif s.key == "ds18b20" %}
+use lince::devices::sensors::ds18b20::Ds18b20Sensor;
+{% elif s.key == "mhrd" %}
+use lince::devices::sensors::mhrd::MhRdSensor;
+{% endif %}
+{% endfor %}
+
+/// Conjunto de sensores activos en esta aplicación.
+///
+/// Agrupar los sensores en una sola struct evita pasar cada uno por
+/// separado entre funciones del módulo `app`.
+pub struct Sensores {
+{% for s in sensors %}
+    pub {{ s.key }}: {{ s.sensor_struct }},
+{% endfor %}
+}
+
+impl Sensores {
+    /// Inicializa todos los sensores configurados a partir de `AppConfig`.
+    pub fn inicializar(cfg: &AppConfig) -> Self {
+        Self {
+{% for s in sensors %}
+{% if s.key == "dht11" %}
+            {{ s.key }}: Dht11Sensor::new(cfg.dht11.pin)
+                .expect("No se pudo inicializar DHT11"),
+{% elif s.key == "dht22" %}
+            {{ s.key }}: Dht22Sensor::new(cfg.dht22.pin)
+                .expect("No se pudo inicializar DHT22"),
+{% elif s.key == "ds18b20" %}
+            {{ s.key }}: Ds18b20Sensor::new(&cfg.ds18b20.device_id)
+                .expect("No se pudo inicializar DS18B20"),
+{% elif s.key == "mhrd" %}
+            {{ s.key }}: MhRdSensor::new(cfg.mhrd.pin, true)
+                .expect("No se pudo inicializar MH-RD"),
+{% endif %}
+{% endfor %}
+        }
+    }
+}

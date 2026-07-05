@@ -1,0 +1,16 @@
+[package]
+name = "lince_app"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "lince_app"
+path = "src/main.rs"
+
+[dependencies]
+lince = { git = "https://github.com/Saiduts/lince" }
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+{% if use_sqlite %}
+rusqlite = { version = "0.31", features = ["bundled"] }
+{% endif %}

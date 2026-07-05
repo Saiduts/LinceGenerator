@@ -1,0 +1,28 @@
+# Configuración de la aplicación Lince.
+# Editar este archivo NO requiere recompilar el binario.
+
+[mqtt]
+broker    = "{{ broker }}"
+port      = {{ port }}
+topic     = "{{ topic }}"
+client_id = "{{ client_id }}"
+{% if use_smartcampus %}
+device_id = "{{ device_id }}"
+{% endif %}
+
+[app]
+interval_secs = {{ interval }}
+{% if use_sqlite %}
+db_path       = "{{ db_path }}"
+{% endif %}
+
+{% for s in sensors %}
+[{{ s.key }}]
+enabled = true
+{% if s.type == "onewire" %}
+device_id = "{{ s.device_id }}"
+{% else %}
+pin = {{ s.pin }}
+{% endif %}
+
+{% endfor %}

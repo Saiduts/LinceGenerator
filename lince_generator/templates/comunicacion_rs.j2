@@ -1,0 +1,42 @@
+// src/comunicacion.rs
+//
+// Encapsula la conexión MQTT y, si está activado, el formateador
+// Smart Campus. Mantener esto separado de `app.rs` permite cambiar
+// el destino de los datos (otro broker, otro formato) sin tocar
+// la lógica del loop principal.
+
+use crate::config::AppConfig;
+use lince::network::mqtt::MqttCommunicator;
+{% if use_smartcampus %}
+use lince::network::smart_campus::{SmartCampusFormatter, SmartCampusHeader};
+{% endif %}
+
+pub struct Comunicacion {
+    pub mqtt: MqttCommunicator,
+{% if use_smartcampus %}
+    pub formatter: SmartCampusFormatter,
+{% endif %}
+}
+
+impl Comunicacion {
+    /// Establece la conexión MQTT y, si aplica, prepara el formateador
+    /// Smart Campus con el header configurado.
+    pub fn inicializar(cfg: &AppConfig) -> Self {
+        let mqtt = MqttCommunicator::new(
+            &cfg.mqtt.client_id,
+            &cfg.mqtt.broker,
+            cfg.mqtt.port,
+            &cfg.mqtt.topic,
+        ).expect("No se pudo conectar al broker MQTT");
+
+{% if use_smartcampus %}
+        let formatter = SmartCampusFormatter::new(
+            SmartCampusHeader::new(&cfg.mqtt.device_id, &cfg.mqtt.topic)
+        );
+
+        Self { mqtt, formatter }
+{% else %}
+        Self { mqtt }
+{% endif %}
+    }
+}

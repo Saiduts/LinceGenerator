@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador Lince</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:var(--bg-page);color:var(--tx-primary);font-size:14px;line-height:1.5}
+
+:root{
+  --bg-page:#f0eff8; --bg-card:#ffffff; --bg-surface:#f7f6fb; --bg-surface2:#efeefc;
+  --tx-primary:#1a1830; --tx-secondary:#6b6888; --tx-muted:#a09cb8;
+  --border:#e2e0f0; --border-strong:#c8c4e0;
+  --purple:#5048b7; --purple-light:#eeedfe; --purple-dark:#3c3489;
+  --teal:#0f6e56; --teal-light:#e1f5ee; --teal-mid:#1d9e75;
+  --radius-sm:6px; --radius:10px; --radius-lg:14px;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg-page:#100f1e; --bg-card:#1a1830; --bg-surface:#221f38; --bg-surface2:#2a2645;
+    --tx-primary:#e8e6f8; --tx-secondary:#9b97c0; --tx-muted:#5e5a80;
+    --border:#2e2a4a; --border-strong:#3e3a5e;
+    --purple-light:#26215c; --teal-light:#04342c;
+  }
+}
+
+.layout{display:grid;grid-template-columns:340px 1fr;min-height:100vh}
+.sidebar{background:var(--bg-card);border-right:0.5px solid var(--border);padding:0;display:flex;flex-direction:column;overflow-y:auto}
+.sidebar-header{padding:1.5rem 1.25rem 1rem;border-bottom:0.5px solid var(--border)}
+.logo{display:flex;align-items:center;gap:10px;margin-bottom:4px}
+.logo-icon{width:32px;height:32px;background:var(--purple);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;font-weight:500;flex-shrink:0}
+.logo-text{font-size:16px;font-weight:500;color:var(--tx-primary)}
+.logo-sub{font-size:12px;color:var(--tx-muted)}
+
+.section{padding:1rem 1.25rem;border-bottom:0.5px solid var(--border)}
+.section:last-of-type{border-bottom:none;flex:1}
+.section-title{font-size:11px;font-weight:500;color:var(--tx-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.75rem}
+
+.sensor-card{border:0.5px solid var(--border);border-radius:var(--radius);margin-bottom:8px;overflow:hidden;transition:border-color .15s}
+.sensor-card.checked{border-color:var(--purple)}
+.sensor-top{display:flex;align-items:center;gap:10px;padding:.6rem .75rem;cursor:pointer;user-select:none}
+.sensor-top:hover{background:var(--bg-surface)}
+.toggle{width:36px;height:20px;border-radius:20px;background:var(--border-strong);border:none;cursor:pointer;position:relative;flex-shrink:0;transition:background .2s}
+.toggle.on{background:var(--purple)}
+.toggle::after{content:'';position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s}
+.toggle.on::after{left:19px}
+.sensor-icon{width:28px;height:28px;border-radius:var(--radius-sm);background:var(--bg-surface2);display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0}
+.sensor-info{flex:1;min-width:0}
+.sensor-name{font-size:13px;font-weight:500;color:var(--tx-primary)}
+.sensor-desc{font-size:11px;color:var(--tx-muted)}
+.sensor-badge{font-size:10px;padding:2px 7px;border-radius:20px;background:var(--purple-light);color:var(--purple-dark);font-weight:500;flex-shrink:0}
+.sensor-fields{padding:.75rem;border-top:0.5px solid var(--border);background:var(--bg-surface);display:none}
+.sensor-fields.open{display:block}
+
+.field{margin-bottom:.6rem}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:11px;color:var(--tx-secondary);margin-bottom:3px;font-weight:500}
+.field input[type=text],.field input[type=number],.field select{
+  width:100%;border:0.5px solid var(--border-strong);border-radius:var(--radius-sm);
+  padding:6px 9px;font-size:13px;background:var(--bg-card);color:var(--tx-primary);
+  appearance:none;outline:none;transition:border-color .15s
+}
+.field input:focus,.field select:focus{border-color:var(--purple)}
+
+.toggle-row{display:flex;align-items:center;justify-content:space-between;padding:.55rem 0}
+.toggle-row .tl{font-size:13px;font-weight:500;color:var(--tx-primary)}
+.toggle-row .ts{font-size:11px;color:var(--tx-muted)}
+.mini-toggle{width:32px;height:18px;border-radius:20px;background:var(--border-strong);border:none;cursor:pointer;position:relative;flex-shrink:0;transition:background .2s}
+.mini-toggle.on{background:var(--teal-mid)}
+.mini-toggle::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .2s}
+.mini-toggle.on::after{left:16px}
+.sub-fields{margin-top:.5rem;display:none}
+.sub-fields.open{display:block}
+.divider{height:0.5px;background:var(--border);margin:.25rem 0}
+
+.actions{padding:1rem 1.25rem;border-top:0.5px solid var(--border)}
+.btn{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;padding:9px 12px;border-radius:var(--radius);font-size:13px;font-weight:500;cursor:pointer;border:none;transition:opacity .15s}
+.btn:active{opacity:.85}
+.btn-preview{background:var(--purple-light);color:var(--purple-dark);margin-bottom:6px}
+.btn-preview:hover{background:var(--bg-surface2)}
+.btn-download{background:var(--purple);color:#fff}
+.btn-download:hover{background:var(--purple-dark)}
+
+.main{display:flex;flex-direction:column;background:var(--bg-page);overflow:hidden}
+.main-header{padding:1.25rem 1.5rem 1rem;display:flex;align-items:center;justify-content:space-between;border-bottom:0.5px solid var(--border);background:var(--bg-card)}
+.main-header h2{font-size:15px;font-weight:500}
+
+.file-tree{display:flex;gap:6px;flex-wrap:wrap;padding:.75rem 1.5rem;background:var(--bg-card);border-bottom:0.5px solid var(--border)}
+.ftab{font-size:12px;padding:5px 11px;border-radius:7px;cursor:pointer;color:var(--tx-secondary);border:0.5px solid var(--border);background:var(--bg-surface);font-family:monospace;display:flex;align-items:center;gap:5px}
+.ftab.active{background:var(--purple-light);border-color:var(--purple);color:var(--purple-dark);font-weight:500}
+.ftab.disabled{opacity:.4;cursor:not-allowed}
+.ftab .dot{width:5px;height:5px;border-radius:50%;background:var(--teal-mid);flex-shrink:0}
+
+.summary-bar{display:flex;gap:8px;flex-wrap:wrap;padding:.6rem 1.5rem;border-bottom:0.5px solid var(--border);background:var(--bg-card)}
+.chip{font-size:11px;padding:3px 9px;border-radius:20px;border:0.5px solid var(--border);color:var(--tx-secondary)}
+.chip.active{background:var(--purple-light);border-color:var(--purple);color:var(--purple-dark)}
+.chip.feat{background:var(--teal-light);border-color:var(--teal);color:var(--teal)}
+
+.code-area{flex:1;overflow:auto;padding:1.25rem 1.5rem}
+.code-wrap{background:var(--bg-card);border:0.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;height:100%}
+.code-header{display:flex;align-items:center;justify-content:space-between;padding:.6rem 1rem;border-bottom:0.5px solid var(--border);background:var(--bg-surface)}
+.code-filename{font-size:12px;color:var(--tx-secondary);font-family:monospace}
+.copy-btn{font-size:11px;padding:3px 8px;border-radius:5px;border:0.5px solid var(--border-strong);background:var(--bg-card);color:var(--tx-secondary);cursor:pointer}
+.copy-btn:hover{color:var(--tx-primary)}
+pre{padding:1rem;font-family:'SF Mono','Fira Code',monospace;font-size:12px;line-height:1.65;color:#cdd6f4;background:#1e1e2e;margin:0;white-space:pre;overflow:auto;min-height:300px}
+
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:3rem;text-align:center;gap:.75rem;background:#1e1e2e}
+.empty-icon{font-size:32px;color:#45475a}
+.empty-title{font-size:14px;color:#6c7086}
+.empty-sub{font-size:12px;color:#45475a;max-width:260px}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">
+      <div class="logo-icon">L</div>
+      <div>
+        <div class="logo-text">Lince generator</div>
+        <div class="logo-sub">Framework IoT para Raspberry Pi</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Sensores</div>
+
+    <div class="sensor-card" id="card-dht22">
+      <div class="sensor-top" onclick="toggleSensor('dht22')">
+        <button class="toggle" id="tog-dht22" aria-label="activar dht22"></button>
+        <div class="sensor-icon">🌡</div>
+        <div class="sensor-info">
+          <div class="sensor-name">DHT22</div>
+          <div class="sensor-desc">Temperatura y humedad</div>
+        </div>
+        <span class="sensor-badge">digital</span>
+      </div>
+      <div class="sensor-fields" id="fields-dht22">
+        <div class="field">
+          <label>Pin GPIO (BCM)</label>
+          <input type="number" id="pin_dht22" value="23" min="0" max="27">
+        </div>
+      </div>
+    </div>
+
+    <div class="sensor-card" id="card-dht11">
+      <div class="sensor-top" onclick="toggleSensor('dht11')">
+        <button class="toggle" id="tog-dht11" aria-label="activar dht11"></button>
+        <div class="sensor-icon">🌡</div>
+        <div class="sensor-info">
+          <div class="sensor-name">DHT11</div>
+          <div class="sensor-desc">Temperatura y humedad básico</div>
+        </div>
+        <span class="sensor-badge">digital</span>
+      </div>
+      <div class="sensor-fields" id="fields-dht11">
+        <div class="field">
+          <label>Pin GPIO (BCM)</label>
+          <input type="number" id="pin_dht11" value="17" min="0" max="27">
+        </div>
+      </div>
+    </div>
+
+    <div class="sensor-card" id="card-ds18b20">
+      <div class="sensor-top" onclick="toggleSensor('ds18b20')">
+        <button class="toggle" id="tog-ds18b20" aria-label="activar ds18b20"></button>
+        <div class="sensor-icon">🌡</div>
+        <div class="sensor-info">
+          <div class="sensor-name">DS18B20</div>
+          <div class="sensor-desc">Temperatura OneWire</div>
+        </div>
+        <span class="sensor-badge">1-wire</span>
+      </div>
+      <div class="sensor-fields" id="fields-ds18b20">
+        <div class="field">
+          <label>ID del dispositivo</label>
+          <input type="text" id="ds18b20_id" value="28-000000000000" placeholder="28-00000b0e60f1">
+        </div>
+      </div>
+    </div>
+
+    <div class="sensor-card" id="card-mhrd">
+      <div class="sensor-top" onclick="toggleSensor('mhrd')">
+        <button class="toggle" id="tog-mhrd" aria-label="activar mhrd"></button>
+        <div class="sensor-icon">🌧</div>
+        <div class="sensor-info">
+          <div class="sensor-name">MH-RD</div>
+          <div class="sensor-desc">Sensor de lluvia</div>
+        </div>
+        <span class="sensor-badge">digital</span>
+      </div>
+      <div class="sensor-fields" id="fields-mhrd">
+        <div class="field">
+          <label>Pin GPIO (BCM)</label>
+          <input type="number" id="pin_mhrd" value="27" min="0" max="27">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Comunicación MQTT</div>
+    <div class="field">
+      <label>Broker (IP o hostname)</label>
+      <input type="text" id="broker" value="159.65.231.88">
+    </div>
+    <div class="field">
+      <label>Puerto</label>
+      <input type="number" id="port" value="1883">
+    </div>
+    <div class="field">
+      <label>Topic</label>
+      <input type="text" id="topic" value="device/messages">
+    </div>
+    <div class="field">
+      <label>Client ID</label>
+      <input type="text" id="client_id" value="lince-gateway">
+    </div>
+    <div class="field">
+      <label>Intervalo entre lecturas (seg)</label>
+      <input type="number" id="interval" value="10" min="1" max="3600">
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Funcionalidades opcionales</div>
+
+    <div class="toggle-row">
+      <div class="label-block">
+        <div class="tl">Formato Smart Campus</div>
+        <div class="ts">JSON estructurado para el protocolo UIS</div>
+      </div>
+      <button class="mini-toggle on" id="tog-smartcampus" onclick="toggleFeature('smartcampus')" aria-label="activar smart campus"></button>
+    </div>
+    <div class="sub-fields open" id="sub-smartcampus">
+      <div class="field">
+        <label>Device ID (header)</label>
+        <input type="text" id="device_id" value="raspberry-lince">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="toggle-row">
+      <div class="label-block">
+        <div class="tl">Reintento por desconexión</div>
+        <div class="ts">Módulo almacenamiento.rs con SQLite</div>
+      </div>
+      <button class="mini-toggle on" id="tog-sqlite" onclick="toggleFeature('sqlite')" aria-label="activar sqlite"></button>
+    </div>
+    <div class="sub-fields open" id="sub-sqlite">
+      <div class="field">
+        <label>Ruta del archivo SQLite</label>
+        <input type="text" id="db_path" value="pendientes.db">
+      </div>
+    </div>
+  </div>
+
+  <div class="actions">
+    <button class="btn btn-preview" onclick="doPreview()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/></svg>
+      Vista previa del código
+    </button>
+    <button class="btn btn-download" onclick="doDownload()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Descargar proyecto .zip
+    </button>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="main-header">
+    <h2>Vista previa del código generado</h2>
+  </div>
+
+  <div class="file-tree" id="file-tree">
+    <div class="ftab active" data-file="main_rs" onclick="showFile('main_rs')">src/main.rs</div>
+    <div class="ftab" data-file="config_rs" onclick="showFile('config_rs')">src/config.rs</div>
+    <div class="ftab" data-file="sensores_rs" onclick="showFile('sensores_rs')">src/sensores.rs</div>
+    <div class="ftab" data-file="comunicacion_rs" onclick="showFile('comunicacion_rs')">src/comunicacion.rs</div>
+    <div class="ftab" data-file="almacenamiento_rs" id="ftab-almacenamiento" onclick="showFile('almacenamiento_rs')">src/almacenamiento.rs</div>
+    <div class="ftab" data-file="app_rs" onclick="showFile('app_rs')">src/app.rs</div>
+    <div class="ftab" data-file="config_toml" onclick="showFile('config_toml')">config.toml</div>
+    <div class="ftab" data-file="cargo_toml" onclick="showFile('cargo_toml')">Cargo.toml</div>
+  </div>
+
+  <div class="summary-bar" id="summary-bar">
+    <span class="chip" id="chip-sensors">Sin sensores</span>
+    <span class="chip" id="chip-sc">Smart Campus: —</span>
+    <span class="chip" id="chip-retry">Reintento: —</span>
+    <span class="chip" id="chip-broker">broker: —</span>
+  </div>
+
+  <div class="code-area">
+    <div class="code-wrap">
+      <div class="code-header">
+        <span class="code-filename" id="code-filename">src/main.rs</span>
+        <button class="copy-btn" onclick="copyCode()">Copiar</button>
+      </div>
+      <pre id="code-display"><div class="empty">
+  <div class="empty-icon">⌨</div>
+  <div class="empty-title">Configura y genera</div>
+  <div class="empty-sub">Selecciona sensores y haz clic en "Vista previa" para ver cada módulo del proyecto</div>
+</div></pre>
+    </div>
+  </div>
+</main>
+</div>
+
+<script>
+const sensorStates = {dht22:false,dht11:false,ds18b20:false,mhrd:false};
+const featureStates = {smartcampus:true,sqlite:true};
+let cachedFiles = {};
+let currentFile = 'main_rs';
+
+const fileNames = {
+  main_rs:'src/main.rs', config_rs:'src/config.rs', sensores_rs:'src/sensores.rs',
+  comunicacion_rs:'src/comunicacion.rs', almacenamiento_rs:'src/almacenamiento.rs',
+  app_rs:'src/app.rs', config_toml:'config.toml', cargo_toml:'Cargo.toml'
+};
+
+function toggleSensor(key){
+  sensorStates[key] = !sensorStates[key];
+  document.getElementById('tog-'+key).classList.toggle('on', sensorStates[key]);
+  document.getElementById('fields-'+key).classList.toggle('open', sensorStates[key]);
+  document.getElementById('card-'+key).classList.toggle('checked', sensorStates[key]);
+  updateSummary();
+}
+
+function toggleFeature(key){
+  featureStates[key] = !featureStates[key];
+  document.getElementById('tog-'+key).classList.toggle('on', featureStates[key]);
+  document.getElementById('sub-'+key).classList.toggle('open', featureStates[key]);
+  document.getElementById('ftab-almacenamiento').classList.toggle('disabled', !featureStates.sqlite);
+  updateSummary();
+}
+
+function updateSummary(){
+  const active = Object.keys(sensorStates).filter(k=>sensorStates[k]);
+  const labels = {dht22:'DHT22',dht11:'DHT11',ds18b20:'DS18B20',mhrd:'MH-RD'};
+
+  const cs = document.getElementById('chip-sensors');
+  cs.textContent = active.length ? active.map(k=>labels[k]).join(' · ') : 'Sin sensores';
+  cs.classList.toggle('active', active.length>0);
+
+  const csc = document.getElementById('chip-sc');
+  csc.textContent = 'Smart Campus: '+(featureStates.smartcampus?'activo':'desactivado');
+  csc.classList.toggle('feat', featureStates.smartcampus);
+
+  const cr = document.getElementById('chip-retry');
+  cr.textContent = 'Reintento SQLite: '+(featureStates.sqlite?'activo':'desactivado');
+  cr.classList.toggle('feat', featureStates.sqlite);
+
+  const cb = document.getElementById('chip-broker');
+  cb.textContent = 'broker: '+(document.getElementById('broker').value||'—');
+}
+
+function getConfig(){
+  const sensors = Object.keys(sensorStates).filter(k=>sensorStates[k]);
+  return {
+    sensors,
+    broker:       document.getElementById('broker').value,
+    port:         document.getElementById('port').value,
+    topic:        document.getElementById('topic').value,
+    client_id:    document.getElementById('client_id').value,
+    interval:     document.getElementById('interval').value,
+    use_sqlite:   featureStates.sqlite,
+    use_smartcampus: featureStates.smartcampus,
+    db_path:      document.getElementById('db_path').value,
+    device_id:    document.getElementById('device_id').value,
+    pin_dht22:    document.getElementById('pin_dht22').value,
+    pin_dht11:    document.getElementById('pin_dht11').value,
+    pin_mhrd:     document.getElementById('pin_mhrd').value,
+    ds18b20_id:   document.getElementById('ds18b20_id').value,
+  };
+}
+
+function showFile(name){
+  if (name === 'almacenamiento_rs' && !featureStates.sqlite) return;
+  currentFile = name;
+  document.querySelectorAll('.ftab').forEach(t => t.classList.toggle('active', t.dataset.file === name));
+  document.getElementById('code-filename').textContent = fileNames[name];
+  const content = cachedFiles[name];
+  document.getElementById('code-display').textContent = content || '';
+}
+
+async function doPreview(){
+  const cfg = getConfig();
+  if(!cfg.sensors.length){alert('Selecciona al menos un sensor.');return;}
+  const resp = await fetch('/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)});
+  const data = await resp.json();
+  cachedFiles = data;
+  document.getElementById('ftab-almacenamiento').classList.toggle('disabled', !cfg.use_smartcampus && false);
+  document.getElementById('ftab-almacenamiento').classList.toggle('disabled', !featureStates.sqlite);
+  showFile(currentFile);
+  updateSummary();
+}
+
+function copyCode(){
+  const txt = document.getElementById('code-display').textContent;
+  navigator.clipboard.writeText(txt).then(()=>{
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent='Copiado';
+    setTimeout(()=>btn.textContent='Copiar',1500);
+  });
+}
+
+function doDownload(){
+  const cfg = getConfig();
+  if(!cfg.sensors.length){alert('Selecciona al menos un sensor.');return;}
+  fetch('/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)})
+    .then(r=>r.blob())
+    .then(blob=>{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;a.download='lince_app.zip';
+      a.click();URL.revokeObjectURL(url);
+    });
+}
+
+document.getElementById('broker').addEventListener('input', updateSummary);
+updateSummary();
+</script>
+</body>
+</html>

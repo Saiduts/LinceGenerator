@@ -1,0 +1,160 @@
+// src/app.rs
+//
+// Contiene el loop principal de lectura, formateo y envío.
+// Separar esto de `main.rs` permite testear o reutilizar la lógica
+// sin depender directamente del punto de entrada del binario.
+
+use std::thread;
+use std::time::Duration;
+
+use lince::core::traits::sensor::Sensor;
+use lince::core::traits::communicator::{Communicator, CommunicatorError};
+{% if use_sqlite %}
+use lince::core::traits::storage::Storage;
+use lince::storage::sqlite::SqliteStorage;
+{% endif %}
+{% if use_smartcampus %}
+use lince::parser::SensorParser;
+{% endif %}
+use lince::network::mqtt::MqttCommunicator;
+
+use crate::config::AppConfig;
+use crate::sensores::Sensores;
+use crate::comunicacion::Comunicacion;
+
+/// Ejecuta el loop de lectura indefinidamente.
+///
+/// Por cada sensor configurado: lee, (opcionalmente) parsea y formatea
+/// a Smart Campus, (opcionalmente) guarda en SQLite, e intenta enviar
+/// por MQTT. Si el envío falla por desconexión y SQLite está activado,
+/// se reintenta la cola de pendientes antes de continuar.
+pub fn ejecutar(
+    cfg: &AppConfig,
+    mut sensores: Sensores,
+    mut com: Comunicacion,
+{% if use_sqlite %}
+    mut storage: SqliteStorage,
+{% endif %}
+) {
+    println!("Lince iniciado — broker: {}:{}", cfg.mqtt.broker, cfg.mqtt.port);
+    println!("Topic: {}  |  Intervalo: {}s\n", cfg.mqtt.topic, cfg.app.interval_secs);
+
+    thread::sleep(Duration::from_secs(2));
+
+    loop {
+{% for s in sensors %}
+        procesar_{{ s.key }}(
+            &mut sensores.{{ s.key }},
+            &mut com,
+{% if use_sqlite %}
+            &mut storage,
+{% endif %}
+        );
+        thread::sleep(Duration::from_secs(2));
+
+{% endfor %}
+{% if use_sqlite %}
+        println!("Pendientes: {}  —  esperando {}s...\n", storage.pending_count(), cfg.app.interval_secs);
+{% endif %}
+        thread::sleep(Duration::from_secs(cfg.app.interval_secs));
+    }
+}
+
+{% for s in sensors %}
+/// Procesa una lectura del sensor {{ s.key | upper }}.
+fn procesar_{{ s.key }}(
+    sensor: &mut {{ s.sensor_struct }},
+    com: &mut Comunicacion,
+{% if use_sqlite %}
+    storage: &mut SqliteStorage,
+{% endif %}
+) {
+    match sensor.read() {
+        Ok(output) => {
+{% if use_smartcampus %}
+{% if s.parser == "dht" %}
+            match SensorParser::dht(&output) {
+                Ok(valores) => {
+                    println!("[{{ s.key | upper }}] Temp: {}°C  Hum: {}%",
+                        valores["temperatura"], valores["humedad"]);
+                    let json = com.formatter.desde_mapa(&valores);
+{% if use_sqlite %}
+                    storage.save(output).unwrap();
+                    enviar(&mut com.mqtt, json.as_bytes(), storage);
+{% else %}
+                    enviar(&mut com.mqtt, json.as_bytes());
+{% endif %}
+                }
+                Err(e) => eprintln!("[{{ s.key | upper }}] Error al parsear: {:?}", e),
+            }
+{% elif s.parser == "ds18b20" %}
+            match SensorParser::ds18b20(&output) {
+                Ok(temp) => {
+                    println!("[DS18B20] Temp: {:.2}°C", temp);
+                    let json = com.formatter.desde_valor("temperatura_ds18b20", temp);
+{% if use_sqlite %}
+                    storage.save(output).unwrap();
+                    enviar(&mut com.mqtt, json.as_bytes(), storage);
+{% else %}
+                    enviar(&mut com.mqtt, json.as_bytes());
+{% endif %}
+                }
+                Err(e) => eprintln!("[DS18B20] Error al parsear: {:?}", e),
+            }
+{% elif s.parser == "mhrd" %}
+            match SensorParser::mhrd(&output) {
+                Ok(mojado) => {
+                    println!("[MH-RD] Estado: {}", if mojado { "HÚMEDO" } else { "SECO" });
+                    let json = com.formatter.desde_bool("lluvia", mojado);
+{% if use_sqlite %}
+                    storage.save(output).unwrap();
+                    enviar(&mut com.mqtt, json.as_bytes(), storage);
+{% else %}
+                    enviar(&mut com.mqtt, json.as_bytes());
+{% endif %}
+                }
+                Err(e) => eprintln!("[MH-RD] Error al parsear: {:?}", e),
+            }
+{% endif %}
+{% else %}
+            let payload = format!("{:?}", output);
+            println!("[{{ s.key | upper }}] {}", payload);
+{% if use_sqlite %}
+            storage.save(output).unwrap();
+            enviar(&mut com.mqtt, payload.as_bytes(), storage);
+{% else %}
+            enviar(&mut com.mqtt, payload.as_bytes());
+{% endif %}
+{% endif %}
+        }
+        Err(e) => eprintln!("[{{ s.key | upper }}] Error al leer: {:?}", e),
+    }
+}
+
+{% endfor %}
+{% if use_sqlite %}
+/// Envía datos por MQTT. Si falla por desconexión, reintenta la cola
+/// de pendientes guardada en SQLite; si falla por error de protocolo,
+/// se descarta porque reintentarlo no cambiaría el resultado.
+fn enviar(mqtt: &mut MqttCommunicator, data: &[u8], storage: &mut SqliteStorage) {
+    match mqtt.send(data) {
+        Ok(())                               => println!("  ✓ enviado"),
+        Err(CommunicatorError::Disconnected) => {
+            eprintln!("  ✗ sin conexión — reintentando pendientes...");
+            let n = storage.flush_pending(mqtt);
+            println!("  ✓ reenviados: {}", n);
+        }
+        Err(CommunicatorError::SendError)    => eprintln!("  ✗ error de protocolo"),
+    }
+}
+{% else %}
+/// Envía datos por MQTT. Sin SQLite activado, una desconexión simplemente
+/// se reporta y el dato de esa lectura se pierde.
+fn enviar(mqtt: &mut MqttCommunicator, data: &[u8]) {
+    match mqtt.send(data) {
+        Ok(())                               => println!("  ✓ enviado"),
+        Err(CommunicatorError::Disconnected) => eprintln!("  ✗ sin conexión, dato descartado"),
+        Err(CommunicatorError::SendError)    => eprintln!("  ✗ error de protocolo"),
+    }
+}
+{% endif %}

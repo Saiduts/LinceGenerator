@@ -1,0 +1,69 @@
+# Aplicación Lince generada automáticamente
+
+## Estructura del proyecto
+
+```
+src/
+├── main.rs            ← punto de entrada, orquesta los módulos
+├── config.rs          ← carga config.toml en runtime
+├── sensores.rs        ← inicialización de sensores
+├── comunicacion.rs     ← MQTT{% if use_smartcampus %} + formato Smart Campus{% endif %}
+
+{% if use_sqlite %}
+├── almacenamiento.rs   ← SQLite con reintento por desconexión
+{% endif %}
+└── app.rs             ← loop principal de lectura y envío
+config.toml             ← configuración editable sin recompilar
+```
+
+## Sensores configurados
+
+{% for s in sensors %}
+- **{{ s.label }}**{% if s.type != "onewire" %} — GPIO {{ s.pin }}{% else %} — ID: {{ s.device_id }}{% endif %}
+
+{% endfor %}
+
+## Funcionalidades activas
+
+- Formato Smart Campus: **{{ "activado" if use_smartcampus else "desactivado" }}**
+- Reintento por desconexión (SQLite): **{{ "activado" if use_sqlite else "desactivado" }}**
+
+Broker MQTT: `{{ broker }}:{{ port }}`
+Topic: `{{ topic }}`
+Intervalo de lectura: `{{ interval }}s`
+
+## Editar configuración
+
+Todos los parámetros de red, pines y rutas viven en `config.toml`.
+Modificarlo no requiere recompilar — solo reiniciar el binario.
+
+## Compilar en Raspberry Pi
+
+```bash
+cargo build --release
+./target/release/lince_app
+```
+
+## Cross-compilar desde Linux x86_64
+
+```bash
+rustup target add aarch64-unknown-linux-gnu
+sudo apt install gcc-aarch64-linux-gnu
+cargo build --release --target aarch64-unknown-linux-gnu
+```
+
+El binario queda en `target/aarch64-unknown-linux-gnu/release/lince_app`.
+
+Cópialo junto con `config.toml` a la Raspberry Pi (ambos deben estar
+en el mismo directorio):
+
+```bash
+scp target/aarch64-unknown-linux-gnu/release/lince_app config.toml pi@<IP_RASPBERRY>:~/
+```
+
+## Ejecutar en la Raspberry Pi
+
+```bash
+chmod +x lince_app
+./lince_app
+```

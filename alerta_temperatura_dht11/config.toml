@@ -1,0 +1,21 @@
+# Configuración de la aplicación Lince.
+# Editar este archivo NO requiere recompilar el binario.
+
+[mqtt]
+broker    = "localhost"
+port      = 1883
+topic     = "sensores/temperatura/alertas"
+client_id = "alerta-temperatura-dht11"
+device_id = "raspberry-lince-dht11"
+
+[app]
+interval_secs = 5
+db_path       = "pendientes.db"
+
+[dht11]
+enabled = true
+pin = 17
+# Se publica ÚNICAMENTE cuando la lectura cruza este umbral
+# (de normal a alerta, o de alerta a normal).
+umbral_temperatura_c = 30.0
+

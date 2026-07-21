@@ -1,0 +1,16 @@
+// src/almacenamiento.rs
+//
+// Envuelve SqliteStorage para que app.rs no necesite conocer la ruta
+// del archivo ni los detalles de inicialización. Solo existe en el
+// proyecto cuando el reintento por desconexión está activado.
+
+use crate::config::AppConfig;
+use lince::storage::sqlite::SqliteStorage;
+
+pub fn inicializar(cfg: &AppConfig) -> SqliteStorage {
+    let storage = SqliteStorage::new(&cfg.app.db_path)
+        .expect("No se pudo abrir la base de datos SQLite");
+
+    println!("Pendientes al arrancar: {}", storage.pending_count());
+    storage
+}

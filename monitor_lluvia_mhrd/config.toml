@@ -1,0 +1,18 @@
+# Configuración de la aplicación Lince.
+# Editar este archivo NO requiere recompilar el binario.
+
+[mqtt]
+broker    = "localhost"
+port      = 1883
+topic     = "sensores/lluvia/estado"
+client_id = "monitor-lluvia-mhrd"
+device_id = "raspberry-lince-mhrd"
+
+[app]
+interval_secs = 2
+db_path       = "pendientes.db"
+
+[mhrd]
+enabled = true
+pin = 27
+

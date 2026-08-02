@@ -18,6 +18,18 @@ use lince::parser::SensorParser;
 {% endif %}
 use lince::network::mqtt::MqttCommunicator;
 
+{% for s in sensors %}
+{% if s.key == "dht11" %}
+use lince::devices::sensors::dht11::Dht11Sensor;
+{% elif s.key == "dht22" %}
+use lince::devices::sensors::dht22::Dht22Sensor;
+{% elif s.key == "ds18b20" %}
+use lince::devices::sensors::ds18b20::Ds18b20Sensor;
+{% elif s.key == "mhrd" %}
+use lince::devices::sensors::mhrd::MhRdSensor;
+{% endif %}
+{% endfor %}
+
 use crate::config::AppConfig;
 use crate::sensores::Sensores;
 use crate::comunicacion::Comunicacion;
@@ -42,6 +54,19 @@ pub fn ejecutar(
     thread::sleep(Duration::from_secs(2));
 
     loop {
+{% if use_sqlite %}
+        // Antes de leer nuevos datos, intenta vaciar la cola de pendientes.
+        // Esto es necesario incluso cuando el envío actual tiene éxito: cada
+        // lectura se guarda en SQLite con sent=0 antes de intentar el envío
+        // (ver `enviar` más abajo), y solo `flush_pending` marca esas filas
+        // como sent=1. Sin este llamado al inicio de cada ciclo, las filas
+        // de envíos exitosos se quedarían pendientes para siempre.
+        let reenviados = storage.flush_pending(&mut com.mqtt);
+        if reenviados > 0 {
+            println!("  [SQLite] Reenviados {} pendientes\n", reenviados);
+        }
+
+{% endif %}
 {% for s in sensors %}
         procesar_{{ s.key }}(
             &mut sensores.{{ s.key }},
